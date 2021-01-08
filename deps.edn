@@ -1,0 +1,3 @@
+{:deps
+ {clj-insim {:local/root "/Users/stanverberkt/stanverberkt/clj-insim"}
+  lfs-fetchup {:local/root "/Users/stanverberkt/stanverberkt/lfs-fetchup"}}}
