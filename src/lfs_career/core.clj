@@ -23,16 +23,18 @@
 ;; Configuration of races, a collection of races where the :race/track is
 ;; specified (at least)
 
-(def seasons
-  [(season/make {:cars #{"FBM"}
-                 :races [(race/make {:track "BL1" :laps 5})
-                         (race/make {:track "SO1" :laps 5})]})])
+(def season
+  (season/make {:cars #{"FBM"}
+                :grid-size 12
+                :races [(race/make {:track "BL1" :laps 5})
+                        (race/make {:track "SO1" :laps 5})]}))
 
 (comment
 
   (def lfs-client (clj-insim/client))
 
-  (->lfs! lfs-client (race/prepare (get-in seasons [0 :season/races 0]))o)
+  (let [season (-> season season/initialize season/next-race season/next-race)]
+    (->lfs! lfs-client (season/prepare season)))
 
   (clj-insim/stop! lfs-client)
 
