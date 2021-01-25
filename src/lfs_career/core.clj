@@ -4,25 +4,6 @@
             [lfs-career.race :as race]
             [clj-insim.core :as clj-insim]))
 
-;; Single player career
-
-;; Season
-;;  - Events
-
-;; Event
-;;  - (Multiple) races
-
-;; Race
-;;  - Track
-;;  - Car
-;;  - 11 ai's
-;;  - Qualification minutes
-;;  - Race laps
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Configuration of races, a collection of races where the :race/track is
-;; specified (at least)
-
 (def season
   (season/make {:cars #{"FBM"}
                 :grid-size 12
@@ -33,7 +14,7 @@
 
   (def lfs-client (clj-insim/client))
 
-  (let [season (-> season season/initialize season/next-race season/next-race)]
+  (let [season (-> season season/initialize season/next-race)]
     (->lfs! lfs-client (season/prepare season)))
 
   (clj-insim/stop! lfs-client)
