@@ -9,10 +9,14 @@
 (s/def ::model
   (s/keys :req [::laps ::qual ::track]))
 
+(defn make [{:keys [track laps qual]}]
+  {:post [(u/validate ::model %)]}
+  {::track track ::qual qual ::laps laps})
+
 (defn prepare [{::keys [laps qual track] :as race}]
   (u/validate ::model race)
   ["/clear"
-   (str "Loading track " track)
+   (str "Loading track " track "..")
    (str "/track " track)
    {:sleep 4000}
    (str "Finished loading track " track)

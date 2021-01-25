@@ -1,5 +1,6 @@
 (ns lfs-career.core
   (:require [lfs-career.lfs :refer [->lfs!]]
+            [lfs-career.season :as season]
             [lfs-career.race :as race]
             [clj-insim.core :as clj-insim]))
 
@@ -22,15 +23,16 @@
 ;; Configuration of races, a collection of races where the :race/track is
 ;; specified (at least)
 
-(def races
-  [{::race/track "FE1" ::race/laps 5 ::race/qual 10}
-   {::race/track "FE2" ::race/laps 5 ::race/qual 15}])
+(def seasons
+  [(season/make {:cars #{"FBM"}
+                 :races [(race/make {:track "BL1" :laps 5})
+                         (race/make {:track "SO1" :laps 5})]})])
 
 (comment
 
   (def lfs-client (clj-insim/client))
 
-  (->lfs! lfs-client (race/prepare (get races 0)))
+  (->lfs! lfs-client (race/prepare (get-in seasons [0 :season/races 0]))o)
 
   (clj-insim/stop! lfs-client)
 
