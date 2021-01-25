@@ -3,8 +3,8 @@
 
 (defn validate [spec x]
   (if (s/valid? spec x)
-    :valid
+    x
     (throw (ex-info (s/explain-str spec x) (s/explain-data spec x)))))
 
 (defn check [pred x s]
-  (if (pred x) :check (throw (ex-info s x))))
+  (if (pred x) x (throw (ex-info s x))))
