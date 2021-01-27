@@ -5,7 +5,7 @@
             [clj-insim.packets :as packets]
             [clojure.string :as str]))
 
-(defn prepare-race-commands [{::race/keys [laps qual track]}]
+(defn prepare-race-commands [{::race/keys [laps qual track] :as x}]
   ["loading race.."
    "/clear"
    (str "Loading track " track "..")
@@ -23,7 +23,7 @@
     (fn [ai car]
       [(str "/car " car)
        (str "/ai " ai)
-       {:sleep 150}])
+       {:sleep 250}])
     grid (cycle cars))
    ["Grid loaded!"]))
 

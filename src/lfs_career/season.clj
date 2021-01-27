@@ -16,12 +16,13 @@
 (s/def ::races (s/coll-of ::race/model))
 (s/def ::n-races pos-int?)
 (s/def ::results coll?)
-(s/def ::result map?)
-(s/def ::unlocks (s/nilable map?))
+(s/def ::unlocks (s/nilable (s/map-of #{:lfs-career.career/unlocked-cars
+                                        :lfs-career.career/unlocked-seasons}
+                                      set?)))
 
 (s/def ::model
   (s/keys :req [::cars ::grid-size ::n-races ::key ::races ::results ::unlocks]
-          :opt [::grid ::race ::result]))
+          :opt [::grid ::race]))
 
 (defn make [{:keys [cars grid-size key races unlocks]}]
   {:post [(u/validate ::model %)]}
@@ -36,30 +37,32 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Private functions
 
-(defn- initialized? [{::keys [grid]}]
-  grid)
-
 (defn- generate-grid [{::keys [grid-size] :as season}]
   (assoc season ::grid (grid/generate (dec grid-size))))
 
-(defn- initialize [season]
+(defn- initialized?
+  "A season that has an actual grid is considered to be initialized."
+  [{::keys [grid]}]
+  grid)
+
+(defn- register-race-results
+  "If race results are present, move the data to the season/results collection."
+  [{::race/keys [results] :as season}]
   (cond-> season
-    (not (initialized? season))
-    (generate-grid)))
+    (seq results) (assoc ::race/results nil)
+    (seq results) (update ::results #(conj % results))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
 
-(defn register-result [season result]
-  (update season ::result conj result))
-
-(defn next-race [{::keys [races result] :as season}]
+(defn next-race [{::race/keys [results]
+                  ::keys [races] :as season}]
   (when-not (seq races)
     (throw (ex-info "No more races left in season!" season)))
-  (when-not result
-    (throw (ex-info "No race result yet for current race" season)))
-  (-> (initialize season)
-      (dissoc ::result)
-      (update ::results conj result)
-      (update ::races rest)
-      (merge (first races))))
+  (cond-> (register-race-results season)
+    (not (initialized? season)) (generate-grid)
+    (seq races) (update ::races rest)
+    (seq races) (merge (first races))))
+
+(defn end [{::race/keys [results] :as season}]
+  (register-race-results season))

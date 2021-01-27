@@ -1,6 +1,7 @@
 (ns lfs-career.career
   (:require [lfs-career.season :as season]
             [lfs-career.utils :as u]
+            [clojure.set :as set]
             [clojure.spec.alpha :as s]))
 
 (s/def ::seasons (s/map-of keyword? ::season/model))
@@ -24,6 +25,14 @@
 
 (defn start-season [{::keys [seasons] :as career} season-key]
   (when (season-active? career)
-    (throw (ex-info "A season is active" career)))
+    (throw (ex-info "A season is active!" career)))
   (let [season (u/validate ::season/model (get seasons season-key))]
     (merge career season)))
+
+(defn end-season [career]
+  (when-not (season-active? career)
+    (throw (ex-info "No season is active!" career)))
+  (let [{::season/keys [unlocks]} (season/end career)]
+    (merge-with set/union
+     (dissoc career ::season/key)
+     unlocks)))

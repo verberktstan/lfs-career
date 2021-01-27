@@ -3,31 +3,40 @@
             [lfs-career.race :as race]
             [clojure.test :refer [deftest testing is]]))
 
-(def TEST_SEASON (season/make {:key :test-season}))
-(def SEASON_WITH_RESULT (season/register-result
-                         TEST_SEASON
-                         {:player-name "AI 1"
-                          :result-num 0}))
+(def TEST_SEASON (season/make {:key :test-season
+                               :races [(race/make {:track "BL1"})
+                                       (race/make {:track "FE1"})]}))
+(def SEASON_WITH_RACE_RESULTS (-> TEST_SEASON
+                                  (season/next-race)
+                                  (update ::race/results conj {:player-name "AI 1"
+                                                               :result-num 0})))
 
-(deftest register-result-test
-  (testing "register-result"
-    (testing "registers one result"
-      (is (= 1 (-> SEASON_WITH_RESULT ::season/result count))))
-    (testing "registers another result"
-      (is (= 2 (-> SEASON_WITH_RESULT
-                   (season/register-result {:player-name "AI 2"
-                                            :result-num 0})
-                   ::season/result count))))))
+(deftest initialize
+  (testing "initialize"
+    (is (not (#'season/initialized? TEST_SEASON)))
+    (is (#'season/initialized? (#'season/generate-grid TEST_SEASON)))))
 
 (deftest next-race-test
   (testing "next-race"
-    (testing "throws an exception if not result for current race"
-      (is (thrown? Exception (season/next-race TEST_SEASON))))
-    (let [season (season/next-race SEASON_WITH_RESULT)]
-      (testing "stores result"
-        (is (= 1 (-> season ::season/results count))))
-      (testing "picks the next race"
-        (is (= (-> TEST_SEASON ::season/races count dec)
-               (-> season ::season/races count))))
-      (testing "throws an exception if no more races left"
-        (is (thrown? Exception (season/next-race season)))))))
+    (testing "throws an exception if no races are left"
+      (is (thrown? Exception (season/next-race (assoc TEST_SEASON ::season/races [])))))
+    (testing "initializes the season if not yet done"
+      (is (not (#'season/initialized? TEST_SEASON)))
+      (is (#'season/initialized? (season/next-race TEST_SEASON))))
+    (testing "moves race results data to season results"
+      (is (= [[{:player-name "AI 1" :result-num 0}]]
+             (-> SEASON_WITH_RACE_RESULTS
+                 (season/next-race)
+                 (::season/results)))))
+    (testing "sets next in season/races as the current race"
+      (let [next-race (-> TEST_SEASON ::season/races first)]
+        (is (= (::race/track next-race)
+               (::race/track (season/next-race TEST_SEASON))))))))
+
+(deftest end-test
+  (testing "end"
+    (testing "moves race results data to season results"
+      (is (= [[{:player-name "AI 1" :result-num 0}]]
+             (-> SEASON_WITH_RACE_RESULTS
+                 (season/end)
+                 (::season/results)))))))
