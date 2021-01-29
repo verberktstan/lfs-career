@@ -55,8 +55,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
 
-(defn next-race [{::race/keys [results]
-                  ::keys [races] :as season}]
+(defn next-race [{::keys [races] :as season}]
   (when-not (seq races)
     (throw (ex-info "No more races left in season!" season)))
   (cond-> (register-race-results season)
@@ -66,3 +65,11 @@
 
 (defn end [{::race/keys [results] :as season}]
   (register-race-results season))
+
+(defn finished? [{::keys [n-races races results]}]
+  (and (not (seq races))
+       (= n-races (count results))))
+
+(defn starting-message [{::keys [n-races races]}]
+  (let [race (- n-races (count races))]
+    (str "Welcome to race " race " (of " n-races ") for this season.")))
