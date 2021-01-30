@@ -21,8 +21,8 @@
    ::unlocked-cars unlocked-cars
    ::unlocked-seasons unlocked-seasons})
 
-(defn- season-active? [career]
-  (s/valid? ::season/model career))
+(defn- active-season [career]
+  (and (s/valid? ::season/model career) career))
 
 (defn list-unlocked [{::keys [unlocked-cars unlocked-seasons]}]
   [(str "Unlocked cars: " (str/join ", " unlocked-cars))
@@ -31,17 +31,23 @@
 (defn start-season [{::keys [seasons unlocked-seasons] :as career} season-key]
   (when-not (contains? unlocked-seasons season-key)
     (throw (ex-info (str "Season " (name season-key) " is not available!") career)))
-  (when (season-active? career)
-    (throw (ex-info "A season is active!" career)))
+  (when-let [active-season (active-season career)]
+    (when-not (= season-key (::season/key active-season))
+      (throw (ex-info "A nother season is active!" career))))
   (let [season (u/validate ::season/model (get seasons season-key))]
-    (merge career season)))
+    (merge season career)))
 
 (defn end-season [career]
-  (when-not (season-active? career)
+  (when-not (active-season career)
     (throw (ex-info "No season is active!" career)))
-  (when-not (season/finished? career)
-    (throw (ex-info "Season is not finished yet!" career)))
-  (let [{::season/keys [unlocks]} (season/end career)]
+  (let [{::season/keys [unlocks] :as ended-career} (season/end career)]
+    (when-not (season/finished? ended-career)
+      (throw (ex-info "Season is not finished yet!" career)))
     (merge-with set/union
-     (dissoc career ::season/key)
+     (apply dissoc ended-career (u/spec-keys ::season/model))
      unlocks)))
+
+(defn available-cars [{::keys [unlocked-cars] :as career
+                       ::season/keys [cars]}]
+  (cond-> unlocked-cars
+    (seq cars) (set/intersection cars)))

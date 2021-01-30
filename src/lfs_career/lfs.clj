@@ -5,25 +5,37 @@
             [clj-insim.packets :as packets]
             [clojure.string :as str]))
 
-(defn prepare-race-commands [{::race/keys [laps qual track] :as x}]
-  ["loading race.."
-   "/clear"
-   (str "Loading track " track "..")
-   (str "/track " track)
-   {:sleep 4000}
-   (str "Finished loading track " track)
-   (str "/qual " qual)
-   (str "/laps " laps)
-   "Race loaded!"])
+(defn- race-in-progress? [lfs-state]
+  (-> lfs-state :race-in-progress #{:no-race} not))
 
-(defn prepare-grid-commands [{::season/keys [cars grid]}]
+(defn prepare-race-commands [{::race/keys [laps qual track]} lfs-state]
+  (concat
+   ["loading race.."]
+   (when (race-in-progress? lfs-state)
+     ["/end"
+      {:sleep 3000}])
+   ["/clear"]
+   (when (not= track (:track lfs-state))
+     [(str "Loading track " track "..")
+      (str "/track " track)
+      {:sleep 4000}
+      (str "Finished loading track " track)])
+   [(str "/qual " qual)
+    (str "/laps " laps)
+    "Race loaded!"]))
+
+(defn prepare-grid-commands [{::season/keys [cars grid]
+                              ::race/keys [track]}]
   (concat
    ["Loading grid.."]
    (mapcat
     (fn [ai car]
       [(str "/car " car)
+       {:sleep 50}
+       (str "/setup " track)
+       {:sleep 50}
        (str "/ai " ai)
-       {:sleep 250}])
+       {:sleep 100}])
     grid (cycle cars))
    ["Grid loaded!"]))
 
