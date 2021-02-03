@@ -9,28 +9,23 @@
             [clj-insim.models.packet :as packet]
             [clojure.edn :as edn]
             [clojure.set :as set]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.core.async :as a]))
 
 (declare lfs-client)
 
 (defonce state (atom nil))
 
-(defonce lfs-state (atom nil))
+(defonce sta (atom nil))
 
-(defn in-entry-screen? [{:keys [iss-state-flags]}]
-  (contains? iss-state-flags :front-end))
+(defn- prepare-season [{::season/keys [cars key]}]
+  [[(str "Welcome to the season: " (name key))]
+   ["/cars" (str/join "+" cars)]])
 
-(defn possible? []
-  (when (in-entry-screen? @lfs-state)
-    (throw (ex-info "In entry screen; please select single player" {}))))
-
-(defn- start-season! [season-key]
-  (let [new-state (swap! state career/start-season season-key)]
-    (->lfs!
-     lfs-client
-     (concat
-      [(str "Welcome to the season: " (name season-key))]
-      (lfs/prepare-season-commands new-state)))))
+(defn- start-season! [lfs-client season-key]
+  (->lfs!
+   lfs-client
+   (prepare-season (swap! state career/start-season season-key))))
 
 (defn- register-result! [race-result]
   (swap! state update ::race/results conj race-result))
@@ -46,22 +41,42 @@
      (-> (get-config) :setup-dir)
      {:variants []})))
 
-(defn- next-race! []
-  (let [new-state (swap! state season/next-race)]
-    (future (fetch-setups new-state))
-    (->lfs!
-     lfs-client
-     (concat
-      [(season/starting-message new-state)]
-      (lfs/prepare-race-commands new-state @lfs-state)
-      (lfs/prepare-grid-commands new-state)))))
+(defn- race-in-progress? [sta]
+  (-> sta :race-in-progress #{:no-race} not))
 
-(defn- end-season! []
-  (let [new-state (swap! state career/end-season)]
-    (->lfs!
-     lfs-client
-     [(str "Available seasons; " (str/join ", " (::career/unlocked-seasons new-state)))
-      (str "Available cars; " (str/join ", " (::career/unlocked-cars new-state)))])))
+(defn- prepare-race [{::race/keys [track qual laps] :as season}
+                     sta]
+  (future (fetch-setups season))
+  (concat
+   (when (race-in-progress? sta) [["/end"]])
+   [["/clear"]]
+   (when-not (#{track} (:track sta))
+     [["/track" track]])
+   [["/qual" qual]
+    ["/laps" laps]]))
+
+(defn- prepare-grid [{::season/keys [cars grid]}]
+  (concat
+   (map #(vector "/ai" %) grid)))
+
+(defn- prepare-next-race [sta season]
+  (concat
+   (prepare-race season sta)
+   (prepare-grid season)))
+
+(defn- next-race! [lfs-client]
+  (->lfs!
+   lfs-client
+   (prepare-next-race @sta (swap! state season/next-race))))
+
+(defn- prepare-end-season [{::career/keys [unlocked-seasons unlocked-cars]}]
+  [[(str "Available seasons; " (str/join ", " unlocked-seasons))]
+   [(str "Available cars; " (str/join ", " unlocked-cars))]])
+
+(defn- end-season! [lfs-client]
+  (->lfs!
+   lfs-client
+   (prepare-end-season (swap! state career/end-season))))
 
 (defmulti dispatch clj-insim/packet-type)
 
@@ -81,19 +96,40 @@
   (when (#{2} user-type)
     (str/split (subs message text-start) #" ")))
 
+(defn- parse-season [data]
+  (-> (update data :races (partial map race/make))
+      (update :unlocks set/rename-keys {:seasons ::career/unlocked-seasons
+                                        :cars ::career/unlocked-cars})
+      (season/make)))
+
+(defn- read-career [filename]
+  (career/make
+   (update
+    (-> filename slurp edn/read-string)
+    :seasons
+    (partial map parse-season))))
+
+;; TODO add file checking here!
+(defn- import-career! [s]
+  (let [filename (str s ".edn")
+        career (reset! state (read-career filename))]
+    (packets/mst "!unlocked")))
+
 (def ^:private help-info
-  ["Type `!unlocked` to show all the unlocked cars and seasons"
-   "Type `!start-season fbm-sprint` to start the FBM sprint season"
-   "Type `!next-race` to load the track and grid for next race"
+  ["Type `!career ow-career` to import the Open Wheel career"
+   "Type `!unlocked` to show all the unlocked cars and seasons"
+   "Type `!season fbm-sprint` to start the FBM sprint season"
+   "Type `!race` to load the track and grid for next race"
    "Type `!end-season` to end the season and unlock cars and seasons"])
 
 (defn- dispatch-command [command args]
   (case command
     "!help" (map packets/mst help-info)
+    "!career" (import-career! (-> args first))
     "!unlocked" (map packets/mst (career/list-unlocked @state))
-    "!start-season" (future (start-season! (-> args first keyword)))
-    "!next-race" (future (next-race!))
-    "!end-season" (future (end-season!))
+    "!season" (future (start-season! lfs-client (-> args first keyword)))
+    "!race" (future (next-race! lfs-client))
+    "!end-season" (future (end-season! lfs-client))
     (throw (ex-info "Unknown command!" {}))))
 
 (defmethod dispatch :mso [{::packet/keys [body header]}]
@@ -120,65 +156,22 @@
         [(packets/jrr connection-id :disallow)
          (packets/mst (str car-name " is not allowed (allowed cars; " (str/join ", " cars) ")"))]))))
 
-(defmethod dispatch :sta [{::packet/keys [body]}]
-  (reset! lfs-state body))
-
-(defn- parse-season [data]
-  (-> (update data :races (partial map race/make))
-      (update :unlocks set/rename-keys {:seasons ::career/unlocked-seasons
-                                        :cars ::career/unlocked-cars})
-      (season/make)))
-
-(defn- read-career [filename]
-  (career/make
-   (update
-    (-> filename slurp edn/read-string)
-    :seasons
-    (partial map parse-season))))
-
-(defn- import-career! [filename]
-  (reset! state (read-career filename)))
+(defmethod dispatch :sta [{::packet/keys [header body]}]
+  (reset! sta body))
 
 (comment
 
-  (import-career! "ow-career.edn")
+  (import-career! "ow-career")
 
-  (reset!
-   state
-   (career/make
-    {:seasons [(season/make {:key :fbm-sprint
-                             :cars #{"FBM" "FOX"}
-                             :races [(race/make {:track "BL1"})
-                                     (race/make {:track "SO1R"})]
-                             :unlocks {::career/unlocked-seasons #{:fbm-endurance}}})
-
-               (season/make {:key :fbm-endurance
-                             :cars #{"FBM"}
-                             :races [(race/make {:track "BL1R"})
-                                     (race/make {:track "FE2"})]
-                             :unlocks {::career/unlocked-cars #{"FOX"}}})
-
-               (season/make {:key :fox-sprint
-                             :cars #{"FOX"}
-                             :races [(race/make {:track "BL1"})
-                                     (race/make {:track "FE3"})]
-                             :unlocks {::career/unlocked-seasons #{:fox-endurance}}})
-
-               (season/make {:key :fox-endurance
-                             :cars #{"FOX"}
-                             :races [(race/make {:track "AS4"})
-                                     (race/make {:track "RO1"})]})]
-     :unlocked-cars #{"FBM"}
-     :unlocked-seasons #{:fbm-sprint}}))
-
-  (def lfs-client (clj-insim/client {} (packets/insim-init {:is-flags #{:req-join}}) dispatch))
+  (def lfs-client (clj-insim/client {:sleep-interval 50} (packets/insim-init {:is-flags #{:req-join}}) (comp dispatch lfs/dispatch)))
 
   (start-season! :fbm-sprint)
   (next-race!)
   (end-season!)
-
+  
   @state
+  @sta
 
   (clj-insim/stop! lfs-client)
-
+  lfs-client
 )

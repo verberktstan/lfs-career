@@ -1,59 +1,48 @@
 (ns lfs-career.lfs
-  (:require [lfs-career.grid :as grid]
-            [lfs-career.race :as race]
-            [lfs-career.season :as season]
+  (:require [clj-insim.core :as clj-insim]
             [clj-insim.packets :as packets]
+            [clj-insim.models.packet :as packet]
+            [clojure.core.async :as a]
             [clojure.string :as str]))
 
-(defn- race-in-progress? [lfs-state]
-  (-> lfs-state :race-in-progress #{:no-race} not))
+(def ^:private confirm-chan (atom nil))
 
-(defn prepare-race-commands [{::race/keys [laps qual track]} lfs-state]
-  (concat
-   ["loading race.."]
-   (when (race-in-progress? lfs-state)
-     ["/end"
-      {:sleep 3000}])
-   ["/clear"]
-   (when (not= track (:track lfs-state))
-     [(str "Loading track " track "..")
-      (str "/track " track)
-      {:sleep 4000}
-      (str "Finished loading track " track)])
-   [(str "/qual " qual)
-    (str "/laps " laps)
-    "Race loaded!"]))
+(defn ->lfs! [{:keys [enqueue!]} commands]
+  (let [chan (reset! confirm-chan (a/chan))]
+    (a/go-loop [coll commands]
+      (if-not (seq coll)
+        (a/close! chan)
+        (let [[cmd arg :as x] (first coll)]
+          (enqueue! (packets/mst (str/join " " x)))
+          (when-not (#{"/track" "/ai" "/end"} cmd) ; Check if this is a blocking command
+            (a/put! chan :next)) ; Automaticly confirm, so we can continue
+          (println "Confirmation:" (a/<! chan)) ; Check if confirmed
+          (recur (rest coll)))))))
 
-(defn prepare-grid-commands [{::season/keys [cars grid]
-                              ::race/keys [track]}]
-  (concat
-   ["Loading grid.."]
-   (mapcat
-    (fn [ai car]
-      [(str "/car " car)
-       {:sleep 50}
-       (str "/setup " track)
-       {:sleep 50}
-       (str "/ai " ai)
-       {:sleep 100}])
-    grid (cycle cars))
-   ["Grid loaded!"]))
+(defmulti dispatch clj-insim/packet-type)
 
-(defn prepare-season-commands [{::season/keys [cars]}]
-  (concat
-   ["Loading season.."
-    (str "/cars " (str/join "+" cars))]
-   #_(prepare-race-commands season)
-   #_(prepare-grid-commands grid (cycle cars))
-   ["Season loaded!"]))
+(defmethod dispatch :default [p] p)
 
-(defn ->lfs!
-  "Sends all strings in coll to LFS as an mst command.
-   If the item in coll is {:sleep 4000}, the thread will sleep for 4 seconds
-   before continuing."
-  [{:keys [enqueue!]} coll]
-  (doseq [{:keys [sleep] :as s} coll]
-    (cond
-      (string? s) (enqueue! (packets/mst s))
-      sleep (Thread/sleep sleep)
-      :else (throw (ex-info "Cannot send to LFS!" s)))))
+(defmethod dispatch :tiny [{::packet/keys [header] :as packet}]
+  (when (and @confirm-chan
+             (-> header :data #{:axc})) ; When AutoX cleared
+    (a/put! @confirm-chan :track))
+  packet)
+
+(defmethod dispatch :npl [{::packet/keys [header body] :as packet}]
+  (when (and @confirm-chan
+             (-> body :num-player #{0} not) ; When not a join request
+             (-> header :request-info #{0}) ;; and not a response
+             (-> body :player-type #{:ai})) ;; and new player is AI
+    (a/put! @confirm-chan :ai))
+  packet)
+
+(defonce ^:private race-in-progress (atom :no-race))
+(defmethod dispatch :sta [{::packet/keys [body] :as packet}]
+  (when (and @confirm-chan
+             (-> @race-in-progress #{:no-race} not)
+             (-> body :race-in-progress #{:no-race})
+             (not (contains? (:iss-state-flags body) :front-end)))
+    (a/put! @confirm-chan :no-race-in-progress))
+  (reset! race-in-progress (:race-in-progress body))
+  packet)
