@@ -8,6 +8,7 @@
             [clj-insim.packets :as packets]
             [clj-insim.models.packet :as packet]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.core.async :as a]))
@@ -17,6 +18,8 @@
 (defonce state (atom nil))
 
 (defonce sta (atom nil))
+
+(def ^:private header-line (packets/mst "-=#############=-"))
 
 (defn- prepare-season [{::season/keys [cars key]}]
   [[(str "Welcome to the season: " (name key))]
@@ -42,22 +45,36 @@
      {:variants []})))
 
 (defn- race-in-progress? [sta]
-  (-> sta :race-in-progress #{:no-race} not))
+  (-> sta :race-in-progress #{:race}))
+
+(defn- qualifying-in-progress? [sta]
+  (-> sta :race-in-progress #{:qualifying}))
+
+(defn- no-race-in-progress? [sta]
+  (-> sta :race-in-progress #{:no-race}))
 
 (defn- prepare-race [{::race/keys [track qual laps] :as season}
                      sta]
   (future (fetch-setups season))
   (concat
-   (when (race-in-progress? sta) [["/end"]])
-   [["/clear"]]
-   (when-not (#{track} (:track sta))
-     [["/track" track]])
+   (when-not (no-race-in-progress? sta) [["/end"]])
+   (when-not (#{track} (:track sta)) [["/track" track]])
    [["/qual" qual]
     ["/laps" laps]]))
 
-(defn- prepare-grid [{::season/keys [cars grid]}]
+(defn- cars-and-ai [{::season/keys [cars grid]}]
+  (->> (interleave (cycle cars) grid)
+       (partition 2)))
+
+(defn- prepare-grid [{::season/keys [cars grid] ::race/keys [track] :as season}]
   (concat
-   (map #(vector "/ai" %) grid)))
+   [["/clear"]]
+   (mapcat
+    (fn [[car ai]]
+      [["/car" car]
+       ["/setup" track]
+       ["/ai" ai]])
+    (cars-and-ai season))))
 
 (defn- prepare-next-race [sta season]
   (concat
@@ -88,7 +105,9 @@
    (select-keys player [:player-type :car-name])))
 
 (defmethod dispatch :res [{::packet/keys [body header]}]
-  (when (contains? (:confirmation-flags body) :confirmed)
+  (when (and
+         (race-in-progress? @sta)
+         (contains? (:confirmation-flags body) :confirmed))
     (let [player-id (:data header)]
       (register-result! (combine-result body (clj-insim/get-player player-id))))))
 
@@ -109,14 +128,32 @@
     :seasons
     (partial map parse-season))))
 
-;; TODO add file checking here!
+(defn- available-files
+  "Returns a map of filenames of .edn files (without extension) found in the
+     requested directory, associated with their full path. Supply a directory
+     (without trailing /, eg `careers`"
+  [dir]
+  (let [regex (re-pattern (str dir "/([a-z]+).edn"))]
+    (->>
+     (file-seq (io/file dir))
+     (filter #(.isFile %))
+     (map str)
+     (map (partial re-matches regex))
+     (into {})
+     (set/map-invert))))
+
 (defn- import-career! [s]
-  (let [filename (str s ".edn")
-        career (reset! state (read-career filename))]
-    (packets/mst "!unlocked")))
+  (let [files (available-files "careers")
+        path (get files s)]
+    (if path
+      (let [{::career/keys [key]} (reset! state (read-career path))]
+        [header-line
+         (packets/mst (str "Welcome to career " s))
+         (packets/mst "!unlocked")])
+      (packets/mst (str "Unknown career, try: " (str/join ", " (keys files)))))))
 
 (def ^:private help-info
-  ["Type `!career ow-career` to import the Open Wheel career"
+  ["Type `!career ow` to import the Open Wheel career"
    "Type `!unlocked` to show all the unlocked cars and seasons"
    "Type `!season fbm-sprint` to start the FBM sprint season"
    "Type `!race` to load the track and grid for next race"
@@ -124,7 +161,7 @@
 
 (defn- dispatch-command [command args]
   (case command
-    "!help" (map packets/mst help-info)
+    "!help" (concat [header-line] (map packets/mst help-info))
     "!career" (import-career! (-> args first))
     "!unlocked" (map packets/mst (career/list-unlocked @state))
     "!season" (future (start-season! lfs-client (-> args first keyword)))
@@ -136,7 +173,7 @@
   (when-let [[command & args] (parse-mso-command body)]
     (try
       (dispatch-command command args)
-      (catch Exception e (packets/mst (.getMessage e))))))
+      (catch Exception e (packets/mst (doto (.getMessage e) println))))))
 
 (defn- join-request? [{::packet/keys [body]}]
   (-> body :num-player #{0}))
@@ -158,6 +195,13 @@
 
 (defmethod dispatch :sta [{::packet/keys [header body]}]
   (reset! sta body))
+
+(defmethod dispatch :ver [{::packet/keys [body]}]
+  (let [{:keys [insim-version product version]} body]
+    (println
+     (format
+      "Connected with LFS %s / %s (insim-version %s)"
+      product version insim-version))))
 
 (comment
 

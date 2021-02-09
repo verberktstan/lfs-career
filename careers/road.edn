@@ -1,0 +1,56 @@
+{:unlocked-cars #{"UF1"}
+ :unlocked-seasons #{:uf1-sprint :frontwheel-fours}
+
+ :seasons
+ [{:key :uf1-sprint
+   :cars #{"UF1"}
+   :races [{:track "FE1"
+            :qual 15
+            :laps 7}
+           {:track "FE2R"
+            :qual 15
+            :laps 4}
+           {:track "SO3"
+            :qual 15
+            :laps 8}]
+   :unlocks {:seasons #{:frontwheel-fours}}}
+
+  {:key :frontwheel-fours
+   :cars #{"UF1" "XFG"}
+   :races [{:track "FE2R"
+            :qual 15
+            :laps 4}
+           {:track "SO2"
+            :qual 15
+            :laps 6}
+           {:track "BL1"
+            :qual 15
+            :laps 4}]
+   :unlocks {:cars #{"XFG"}
+             :seasons #{:gti-sprint}}}
+
+  {:key :gti-sprint
+   :cars #{"XFG" "XRG"}
+   :races [{:track "BL1R"
+            :qual 15
+            :laps 4}
+           {:track "SO4"
+            :qual 15
+            :laps 3}
+           {:track "FE2"
+            :qual 15
+            :laps 4}]
+   :unlocks {:cars #{"XRG"}
+             :seasons #{:gti-endurance}}}
+
+  {:key :gti-endurance
+   :cars #{"XFG" "XRG"}
+   :races [{:track "KY2"
+            :qual 30
+            :laps 9}
+           {:track "FE3"
+            :qual 30
+            :laps 13}
+           {:track "BL1"
+            :qual 30
+            :laps 14}]}]}

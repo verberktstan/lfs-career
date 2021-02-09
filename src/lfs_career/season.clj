@@ -76,7 +76,3 @@
 (defn finished? [{::keys [n-races races results]}]
   (and (not (seq races))
        (= n-races (count results))))
-
-(defn starting-message [{::keys [n-races races]}]
-  (let [race (- n-races (count races))]
-    (str "Welcome to race " race " (of " n-races ") for this season.")))

@@ -7,6 +7,20 @@
 
 (def ^:private confirm-chan (atom nil))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Configuration of commands that need to park the current thread and await a
+;; response via confirm-chan. Keys are the parking commands and vals are the
+;; confirmations
+
+(def ^:private cmd-responses
+  {"/ai"    :ai
+   "/clear" :clr
+   "/end"   :ren
+   "/track" :axc})
+
+(def ^:private parking-commands (set (keys cmd-responses)))
+(def ^:private confirmation (set (vals cmd-responses)))
+
 (defn ->lfs! [{:keys [enqueue!]} commands]
   (let [chan (reset! confirm-chan (a/chan))]
     (a/go-loop [coll commands]
@@ -14,9 +28,9 @@
         (a/close! chan)
         (let [[cmd arg :as x] (first coll)]
           (enqueue! (packets/mst (str/join " " x)))
-          (when-not (#{"/track" "/ai" "/end"} cmd) ; Check if this is a blocking command
-            (a/put! chan :next)) ; Automaticly confirm, so we can continue
-          (println "Confirmation:" (a/<! chan)) ; Check if confirmed
+          (when-not (parking-commands cmd) ; Check if this is (not) a blocking command
+            (a/put! chan :next)) ; If this is the case, automaticly confirm, so we can continue
+          (println "Confirmation:" (a/<! chan)) ; Otherwise, thread is parked untill we get a confirmation
           (recur (rest coll)))))))
 
 (defmulti dispatch clj-insim/packet-type)
@@ -25,7 +39,7 @@
 
 (defmethod dispatch :tiny [{::packet/keys [header] :as packet}]
   (when (and @confirm-chan
-             (-> header :data #{:axc})) ; When AutoX cleared
+             (-> header :data confirmation)) ; When AutoX Cleared (axc), CLear Race (clr) or Race ENd (ren)
     (a/put! @confirm-chan :track))
   packet)
 
@@ -33,12 +47,13 @@
   (when (and @confirm-chan
              (-> body :num-player #{0} not) ; When not a join request
              (-> header :request-info #{0}) ;; and not a response
-             (-> body :player-type #{:ai})) ;; and new player is AI
+             (-> body :player-type confirmation)) ;; and new player is AI (one of the confirmation keys is :ai)
     (a/put! @confirm-chan :ai))
   packet)
 
-(defonce ^:private race-in-progress (atom :no-race))
-(defmethod dispatch :sta [{::packet/keys [body] :as packet}]
+#_(defonce ^:private race-in-progress (atom :no-race))
+
+#_(defmethod dispatch :sta [{::packet/keys [body] :as packet}]
   (when (and @confirm-chan
              (-> @race-in-progress #{:no-race} not)
              (-> body :race-in-progress #{:no-race})

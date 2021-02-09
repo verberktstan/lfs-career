@@ -1,0 +1,45 @@
+{:unlocked-cars #{"FBM"}
+ :unlocked-seasons #{:fbm-sprint}
+
+ :seasons
+ [{:key :fbm-sprint
+   :cars #{"FBM"}
+   :races [{:track "BL1"
+            :qual 15
+            :laps 4}
+           {:track "SO1R"
+            :qual 15
+            :laps 6}
+           {:track "FE3"
+            :qual 15
+            :laps 4}]
+   :unlocks {:seasons #{:fbm-endurance}}}
+
+  {:key :fbm-endurance
+   :cars #{"FBM"}
+   :races [{:track "BL1R"
+            :qual 30
+            :laps 16}
+           {:track "FE4"
+            :qual 30
+            :laps 8}]
+   :unlocks {:cars #{"FOX"}}}
+
+  {:key :fox-sprint
+   :cars #{"FOX"}
+   :races [{:track "BL1"
+            :qual 20
+            :laps 7}
+           {:track "SO4"
+            :qual 20
+            :laps 6}]
+   :unlocks {:seasons #{:fox-endurance}}}
+
+  {:key :fox-endurance
+   :cars #{"FOX"}
+   :races [{:track "AS4"
+            :qual 40
+            :laps 7}
+           {:track "KY3"
+            :qual 40
+            :laps 8}]}]}
