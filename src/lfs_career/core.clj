@@ -13,16 +13,17 @@
             [clojure.string :as str]
             [clojure.core.async :as a]))
 
-(declare lfs-client)
+(defonce lfs-client (atom nil))
 
 (defonce state (atom nil))
 
 (defonce sta (atom nil))
 
-(def ^:private header-line (packets/mst "-=#############=-"))
+(def ^:private header-line "-=#############=-")
 
 (defn- prepare-season [{::season/keys [cars key]}]
-  [[(str "Welcome to the season: " (name key))]
+  [[header-line]
+   [(str "Welcome to the season: " (name key))]
    ["/cars" (str/join "+" cars)]])
 
 (defn- start-season! [lfs-client season-key]
@@ -87,7 +88,8 @@
    (prepare-next-race @sta (swap! state season/next-race))))
 
 (defn- prepare-end-season [{::career/keys [unlocked-seasons unlocked-cars]}]
-  [[(str "Available seasons; " (str/join ", " unlocked-seasons))]
+  [[header-line]
+   [(str "Available seasons; " (str/join ", " unlocked-seasons))]
    [(str "Available cars; " (str/join ", " unlocked-cars))]])
 
 (defn- end-season! [lfs-client]
@@ -147,32 +149,54 @@
         path (get files s)]
     (if path
       (let [{::career/keys [key]} (reset! state (read-career path))]
-        [header-line
+        [(packets/mst header-line)
          (packets/mst (str "Welcome to career " s))
          (packets/mst "!unlocked")])
       (packets/mst (str "Unknown career, try: " (str/join ", " (keys files)))))))
+
+(defn- save! [lfs-client s]
+  (spit (str "savegames/" s ".edn") @state)
+  (packets/mst (str "Career saved as " s ", `!load " s "` to restore it")))
+
+(defn- restore-save! [lfs-client s]
+  (let [files (available-files "savegames")
+        path (get files s)]
+    (if path
+      (let [career (reset! state (-> path slurp edn/read-string))]
+        (->lfs!
+         lfs-client
+         (concat
+          (prepare-season career)
+          (prepare-next-race @sta career))))
+      (->lfs!
+       lfs-client
+       [[(str "Savegame not found, try: " (str/join ", " (keys files)))]]))))
 
 (def ^:private help-info
   ["Type `!career ow` to import the Open Wheel career"
    "Type `!unlocked` to show all the unlocked cars and seasons"
    "Type `!season fbm-sprint` to start the FBM sprint season"
    "Type `!race` to load the track and grid for next race"
-   "Type `!end-season` to end the season and unlock cars and seasons"])
+   "Type `!end-season` to end the season and unlock cars and seasons"
+   "Type `!save epic` to save the career (by the name of epic)"
+   "Type `!load epic` to load the savegame that goes by the name epic"])
 
-(defn- dispatch-command [command args]
+(defn- dispatch-command [lfs-client command args]
   (case command
-    "!help" (concat [header-line] (map packets/mst help-info))
+    "!help" (map packets/mst (concat [header-line] help-info))
     "!career" (import-career! (-> args first))
     "!unlocked" (map packets/mst (career/list-unlocked @state))
     "!season" (future (start-season! lfs-client (-> args first keyword)))
     "!race" (future (next-race! lfs-client))
     "!end-season" (future (end-season! lfs-client))
+    "!save" (save! lfs-client (-> args first))
+    "!load" (future (restore-save! lfs-client (-> args first)))
     (throw (ex-info "Unknown command!" {}))))
 
 (defmethod dispatch :mso [{::packet/keys [body header]}]
   (when-let [[command & args] (parse-mso-command body)]
     (try
-      (dispatch-command command args)
+      (dispatch-command @lfs-client command args)
       (catch Exception e (packets/mst (doto (.getMessage e) println))))))
 
 (defn- join-request? [{::packet/keys [body]}]
@@ -201,21 +225,28 @@
     (println
      (format
       "Connected with LFS %s / %s (insim-version %s)"
-      product version insim-version))))
+      product version insim-version))
+    (packets/mst "!help")))
+
+(defn -main []
+  (reset!
+   lfs-client
+   (clj-insim/client
+    {:sleep-interval 50}
+    (packets/insim-init {:is-flags #{:req-join}})
+    (comp dispatch lfs/dispatch)))
+  (println "Type exit, quit or stop to quit lfs-career")
+  (loop [input nil]
+    (if (#{"exit" "quit" "stop"} input)
+      (do
+        (clj-insim/stop! @lfs-client)
+        (System/exit 0))
+      (recur (read-line)))))
 
 (comment
+  (reset!
+   lfs-client
+   (clj-insim/client {:sleep-interval 50} (packets/insim-init {:is-flags #{:req-join}}) (comp dispatch lfs/dispatch)))
 
-  (import-career! "ow-career")
-
-  (def lfs-client (clj-insim/client {:sleep-interval 50} (packets/insim-init {:is-flags #{:req-join}}) (comp dispatch lfs/dispatch)))
-
-  (start-season! :fbm-sprint)
-  (next-race!)
-  (end-season!)
-  
-  @state
-  @sta
-
-  (clj-insim/stop! lfs-client)
-  lfs-client
+  (clj-insim/stop! @lfs-client)
 )

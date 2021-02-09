@@ -30,7 +30,7 @@
           (enqueue! (packets/mst (str/join " " x)))
           (when-not (parking-commands cmd) ; Check if this is (not) a blocking command
             (a/put! chan :next)) ; If this is the case, automaticly confirm, so we can continue
-          (println "Confirmation:" (a/<! chan)) ; Otherwise, thread is parked untill we get a confirmation
+          (a/<! chan) ; Otherwise, thread is parked untill we get a confirmation
           (recur (rest coll)))))))
 
 (defmulti dispatch clj-insim/packet-type)
@@ -49,15 +49,4 @@
              (-> header :request-info #{0}) ;; and not a response
              (-> body :player-type confirmation)) ;; and new player is AI (one of the confirmation keys is :ai)
     (a/put! @confirm-chan :ai))
-  packet)
-
-#_(defonce ^:private race-in-progress (atom :no-race))
-
-#_(defmethod dispatch :sta [{::packet/keys [body] :as packet}]
-  (when (and @confirm-chan
-             (-> @race-in-progress #{:no-race} not)
-             (-> body :race-in-progress #{:no-race})
-             (not (contains? (:iss-state-flags body) :front-end)))
-    (a/put! @confirm-chan :no-race-in-progress))
-  (reset! race-in-progress (:race-in-progress body))
   packet)
