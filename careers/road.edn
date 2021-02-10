@@ -1,22 +1,26 @@
-{:unlocked-cars #{"UF1"}
- :unlocked-seasons #{:uf1-sprint :frontwheel-fours}
+; Configuration of a season
+{:unlocked-cars #{"UF1"} ; Required set of available cars on career start
+ :unlocked-seasons #{:uf1-sprint :frontwheel-fours} ; Required set of available seasons on career start
 
+ ; :seasons is a list of maps, each map representing a season
  :seasons
- [{:key :uf1-sprint
-   :cars #{"UF1"}
-   :races [{:track "FE1"
-            :qual 15
-            :laps 7}
+ [{:key :uf1-sprint ; Required key (identifier) for the season
+   :cars #{"UF1"} ; Optional set of cars for this season (defaults to #{"UF1"}
+   :grid-size 12 ; Optional size of the grid (defaults to 20)
+   ; :races is a list of maps, each map representing a race
+   :races [{:track "FE1" ; Required for each race of course!
+            :qual 15 ; Optional qualify minutes (defaults to 0)
+            :laps 7} ; Optional number of laps (defaults to 3)
            {:track "FE2R"
             :qual 15
             :laps 4}
-           {:track "SO3"
+           {:track "SO3R"
             :qual 15
-            :laps 8}]
-   :unlocks {:seasons #{:frontwheel-fours}}}
+            :laps 8}]}
 
   {:key :frontwheel-fours
    :cars #{"UF1" "XFG"}
+   :grid-size 16
    :races [{:track "FE2R"
             :qual 15
             :laps 4}
@@ -26,11 +30,13 @@
            {:track "BL1"
             :qual 15
             :laps 4}]
+   ; :unlocks is a optional map with :cars and/or :seasons, each of which is a set of cars/seasons to unlock when completing this season
    :unlocks {:cars #{"XFG"}
              :seasons #{:gti-sprint}}}
 
   {:key :gti-sprint
    :cars #{"XFG" "XRG"}
+   :grid-size 24
    :races [{:track "BL1R"
             :qual 15
             :laps 4}
@@ -45,6 +51,7 @@
 
   {:key :gti-endurance
    :cars #{"XFG" "XRG"}
+   :grid-size 32
    :races [{:track "KY2"
             :qual 30
             :laps 9}
