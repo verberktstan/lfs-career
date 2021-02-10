@@ -1,0 +1,1 @@
+java -cp target/lfs-career.jar clojure.main -m lfs-career.core

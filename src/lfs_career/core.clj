@@ -11,7 +11,8 @@
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.core.async :as a]))
+            [clojure.core.async :as a])
+  (:gen-class))
 
 (defonce lfs-client (atom nil))
 
