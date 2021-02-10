@@ -12,12 +12,9 @@
 (s/def ::model
   (s/keys :req [::unlocked-cars ::unlocked-seasons ::seasons]))
 
-(defn key-by [f coll]
-  (into {} (map #(vector (f %) %) coll)))
-
 (defn make [{:keys [seasons unlocked-seasons unlocked-cars]}]
   {:post [(u/validate ::model %)]}
-  {::seasons (key-by ::season/key seasons)
+  {::seasons (u/key-by ::season/key seasons)
    ::unlocked-cars unlocked-cars
    ::unlocked-seasons unlocked-seasons})
 

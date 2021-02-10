@@ -235,6 +235,11 @@
     {:sleep-interval 50}
     (packets/insim-init {:is-flags #{:req-join}})
     (comp dispatch lfs/dispatch)))
+  (let [setup-dir (:setup-dir (get-config))]
+    (when-not (.isDirectory (io/file setup-dir))
+      (println "Config error: Directory does not exist:" setup-dir)
+      (println "Copy `config.edn.example` to `config.edn` and make sure :setup-dir points to your LFS/data/setups directory!")
+      (System/exit 0)))
   (println "Type exit, quit or stop to quit lfs-career")
   (loop [input nil]
     (if (#{"exit" "quit" "stop"} input)
@@ -249,4 +254,6 @@
    (clj-insim/client {:sleep-interval 50} (packets/insim-init {:is-flags #{:req-join}}) (comp dispatch lfs/dispatch)))
 
   (clj-insim/stop! @lfs-client)
+
+  
 )
