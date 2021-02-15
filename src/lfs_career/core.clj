@@ -29,9 +29,13 @@
    ["/cars" (str/join "+" cars)]])
 
 (defn- start-season! [lfs-client season-key]
-  (->lfs!
-   lfs-client
-   (prepare-season (swap! state career/start-season season-key))))
+  (let [season (try
+                 (swap! state career/start-season season-key)
+                 (catch Exception e
+                   (->lfs! lfs-client [[(.getMessage e)]])))]
+    (->lfs!
+     lfs-client
+     (prepare-season season))))
 
 (defn- get-config []
   (-> "config.edn" slurp edn/read-string))
@@ -248,6 +252,4 @@
    (clj-insim/client {:sleep-interval 50} (packets/insim-init {:is-flags #{:req-join}}) (comp dispatch lfs/dispatch)))
 
   (clj-insim/stop! @lfs-client)
-
-  
 )
