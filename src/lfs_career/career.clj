@@ -27,10 +27,11 @@
 
 (defn start-season [{::keys [seasons unlocked-seasons] :as career} season-key]
   (when-not (contains? unlocked-seasons season-key)
-    (throw (ex-info (str "Season " (name season-key) " is not available!") career)))
+    (throw (ex-info (str "Season " (name season-key) " unavailable, try "
+                         (str/join ", " (map name unlocked-seasons))) career)))
   (when-let [active-season (active-season career)]
     (when-not (= season-key (::season/key active-season))
-      (throw (ex-info "A nother season is active!" career))))
+      (throw (ex-info "Another season is active!" career))))
   (let [season (u/validate ::season/model (get seasons season-key))]
     (merge season career)))
 
