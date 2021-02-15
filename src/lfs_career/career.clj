@@ -49,3 +49,7 @@
                        ::season/keys [cars]}]
   (cond-> unlocked-cars
     (seq cars) (set/intersection cars)))
+
+(defn prepare-end-season [{::keys [unlocked-seasons unlocked-cars]}]
+  [[(str "Available seasons; " (str/join ", " unlocked-seasons))]
+   [(str "Available cars; " (str/join ", " unlocked-cars))]])

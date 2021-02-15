@@ -31,3 +31,11 @@
   [{::keys [results]} grid-size]
   (let [threshold (-> grid-size (/ 1.5) int inc)]
     (>= (count results) threshold)))
+
+(defn prepare [{::keys [track qual laps] :as season}
+               sta]
+  (concat
+   (when-not (u/no-race-in-progress? sta) [["/end"]])
+   (when-not (#{track} (:track sta)) [["/track" track]])
+   [["/qual" qual]
+    ["/laps" laps]]))

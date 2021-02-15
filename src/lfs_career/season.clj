@@ -79,3 +79,17 @@
 (defn prepare [{::keys [cars key]}]
   [[(str "Welcome to the season: " (name key))]
    ["/cars" (str/join "+" cars)]])
+
+(defn- cars-and-ai [{::keys [cars grid]}]
+  (->> (interleave (cycle cars) grid)
+       (partition 2)))
+
+(defn prepare-grid [{::keys [cars grid] ::race/keys [track] :as season}]
+  (concat
+   [["/clear"]]
+   (mapcat
+    (fn [[car ai]]
+      [["/car" car]
+       ["/setup" track]
+       ["/ai" ai]])
+    (cars-and-ai season))))

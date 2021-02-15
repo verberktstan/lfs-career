@@ -22,3 +22,15 @@
 
 (defn key-by [f coll]
   (into {} (map #(vector (f %) %) coll)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LFS domain stuff
+
+(defn race-in-progress? [sta]
+  (-> sta :race-in-progress #{:race}))
+
+(defn no-race-in-progress? [sta]
+  (-> sta :race-in-progress #{:no-race}))
+
+(defn qualifying-in-progress? [sta]
+  (-> sta :race-in-progress #{:qualifying}))

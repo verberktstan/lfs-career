@@ -4,6 +4,7 @@
             [lfs-career.season :as season]
             [lfs-career.race :as race]
             [lfs-career.result :as result]
+            [lfs-career.utils :as u]
             [lfs-fetchup.core :as fetchup]
             [clj-insim.core :as clj-insim]
             [clj-insim.packets :as packets]
@@ -41,63 +42,28 @@
      (-> (get-config) :setup-dir)
      {:variants []})))
 
-(defn- race-in-progress? [sta]
-  (-> sta :race-in-progress #{:race}))
-
-(defn- qualifying-in-progress? [sta]
-  (-> sta :race-in-progress #{:qualifying}))
-
-(defn- no-race-in-progress? [sta]
-  (-> sta :race-in-progress #{:no-race}))
-
-(defn- prepare-race [{::race/keys [track qual laps] :as season}
-                     sta]
+(defn- prepare-next-race [sta season]
   (future (fetch-setups season))
   (concat
-   (when-not (no-race-in-progress? sta) [["/end"]])
-   (when-not (#{track} (:track sta)) [["/track" track]])
-   [["/qual" qual]
-    ["/laps" laps]]))
-
-(defn- cars-and-ai [{::season/keys [cars grid]}]
-  (->> (interleave (cycle cars) grid)
-       (partition 2)))
-
-(defn- prepare-grid [{::season/keys [cars grid] ::race/keys [track] :as season}]
-  (concat
-   [["/clear"]]
-   (mapcat
-    (fn [[car ai]]
-      [["/car" car]
-       ["/setup" track]
-       ["/ai" ai]])
-    (cars-and-ai season))))
-
-(defn- prepare-next-race [sta season]
-  (concat
-   (prepare-race season sta)
-   (prepare-grid season)))
+   (race/prepare season sta)
+   (season/prepare-grid season)))
 
 (defn- next-race! [lfs-client]
   (->lfs!
    lfs-client
    (prepare-next-race @sta (swap! state season/next-race))))
 
-(defn- prepare-end-season [{::career/keys [unlocked-seasons unlocked-cars]}]
-  [[(str "Available seasons; " (str/join ", " unlocked-seasons))]
-   [(str "Available cars; " (str/join ", " unlocked-cars))]])
-
 (defn- end-season! [lfs-client]
   (->lfs!
    lfs-client
-   (prepare-end-season (swap! state career/end-season))))
+   (career/prepare-end-season (swap! state career/end-season))))
 
 (defmulti dispatch clj-insim/packet-type)
 
 (defmethod dispatch :default [_] nil)
 
 (defmethod dispatch :res [{::packet/keys [body header]}]
-  (when (and (race-in-progress? @sta)
+  (when (and (u/race-in-progress? @sta)
              (contains? (:confirmation-flags body) :confirmed))
     (let [player (-> header :data clj-insim/get-player)
           result (result/make (merge player body))]
@@ -155,7 +121,7 @@
         (->lfs!
          lfs-client
          (concat
-          (prepare-season career)
+          (season/prepare career)
           (prepare-next-race @sta career))))
       (->lfs!
        lfs-client
