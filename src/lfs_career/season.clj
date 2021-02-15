@@ -2,6 +2,7 @@
   (:require [lfs-career.cars :as cars]
             [lfs-career.grid :as grid]
             [lfs-career.race :as race]
+            [lfs-career.result :as result]
             [lfs-career.tracks :as tracks]
             [lfs-career.utils :as u]
             [clojure.set :as set]
@@ -15,7 +16,7 @@
 (s/def ::race ::race/model)
 (s/def ::races (s/coll-of ::race/model))
 (s/def ::n-races pos-int?)
-(s/def ::results coll?)
+(s/def ::results (s/nilable (s/coll-of (s/coll-of ::result/model))))
 (s/def ::unlocks (s/nilable (s/map-of #{:lfs-career.career/unlocked-cars
                                         :lfs-career.career/unlocked-seasons}
                                       set?)))
@@ -32,7 +33,7 @@
    ::races (or races [(race/make {:track "BL1"})])
    ::n-races (if races (count races) 1)
    ::unlocks unlocks
-   ::results []})
+   ::results nil})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Private functions
@@ -60,18 +61,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
 
+(defn end [{::race/keys [results] :as season}]
+  (register-race-results season))
+
 (defn next-race [{::keys [races] :as season}]
   (when-not (seq races)
     (throw (ex-info "No more races left in season!" season)))
   (let [new-season (cond-> season (not (initialized? season)) (generate-grid))]
     (if (current-race-not-finished? season)
       new-season
-      (cond-> (register-race-results new-season)
+      (cond-> (end new-season)
         (seq races) (update ::races rest)
         (seq races) (merge (first races))))))
-
-(defn end [{::race/keys [results] :as season}]
-  (register-race-results season))
 
 (defn finished? [{::keys [n-races races results]}]
   (and (not (seq races))

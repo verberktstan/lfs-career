@@ -3,6 +3,7 @@
             [lfs-career.lfs :as lfs :refer [->lfs!]]
             [lfs-career.season :as season]
             [lfs-career.race :as race]
+            [lfs-career.result :as result]
             [lfs-fetchup.core :as fetchup]
             [clj-insim.core :as clj-insim]
             [clj-insim.packets :as packets]
@@ -31,9 +32,6 @@
   (->lfs!
    lfs-client
    (prepare-season (swap! state career/start-season season-key))))
-
-(defn- register-result! [race-result]
-  (swap! state update ::race/results conj race-result))
 
 (defn- get-config []
   (-> "config.edn" slurp edn/read-string))
@@ -102,17 +100,12 @@
 
 (defmethod dispatch :default [_] nil)
 
-(defn- combine-result [packet-body player]
-  (merge
-   (select-keys packet-body [:player-name :result-num])
-   (select-keys player [:player-type :car-name])))
-
 (defmethod dispatch :res [{::packet/keys [body header]}]
-  (when (and
-         (race-in-progress? @sta)
-         (contains? (:confirmation-flags body) :confirmed))
-    (let [player-id (:data header)]
-      (register-result! (combine-result body (clj-insim/get-player player-id))))))
+  (when (and (race-in-progress? @sta)
+             (contains? (:confirmation-flags body) :confirmed))
+    (let [player (-> header :data clj-insim/get-player)
+          result (result/make (merge player body))]
+      (swap! state race/register-result result))))
 
 (defn- parse-mso-command [{:keys [user-type text-start message]}]
   (when (#{2} user-type)
