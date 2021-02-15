@@ -75,3 +75,7 @@
 (defn finished? [{::keys [n-races races results]}]
   (and (not (seq races))
        (= n-races (count results))))
+
+(defn prepare [{::keys [cars key]}]
+  [[(str "Welcome to the season: " (name key))]
+   ["/cars" (str/join "+" cars)]])

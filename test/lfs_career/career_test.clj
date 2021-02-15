@@ -2,6 +2,7 @@
   (:require [lfs-career.career :as career]
             [lfs-career.season :as season]
             [lfs-career.race :as race]
+            [lfs-career.result :as result]
             [lfs-career.test-helpers :refer [is-thrown-ex?]]
             [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest testing is]]))
@@ -17,6 +18,14 @@
 
 (def STARTED_TEST_SEASON
   (career/start-season CAREER :test-season))
+
+(def TEST_RESULTS
+  (map
+   #(result/make {:player-name (str "AI " %)
+                  :result-num %
+                  :car-name "UF1"
+                  :player-type :ai})
+   (range 20)))
 
 (deftest career-season-test
   (testing "active-season"
@@ -40,10 +49,12 @@
       (is-thrown-ex? '(career/end-season CAREER)))
     (testing "throws an exception if season is not finished"
       (is-thrown-ex? '(-> CAREER (career/start-season :unkown-season) (career/end-season))))
-    (let [career (-> STARTED_TEST_SEASON
-                     (update ::race/results conj {:race "result"})
+    (let [career (-> (reduce
+                      (fn [career result]
+                        (race/register-result career result))
+                      STARTED_TEST_SEASON
+                      TEST_RESULTS)
                      (season/next-race)
-                     (season/end)
                      (career/end-season))]
       (testing "returns a valid career"
         (is (s/valid? ::career/model career)))

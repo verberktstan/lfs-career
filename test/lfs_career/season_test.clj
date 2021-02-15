@@ -48,12 +48,10 @@
         (is (= (::race/track next-race)
                (::race/track (season/next-race TEST_SEASON))))))))
 
-(season/next-race TEST_SEASON)
-
 (deftest end-test
   (testing "end"
     (testing "moves race results data to season results"
-      (is (= [[{:player-name "AI 1" :result-num 0}]]
+      (is (= [(sort-by ::result/result-num > TEST_RESULTS)]
              (-> WITH_RACE_RESULTS
                  (season/end)
                  (::season/results)))))))

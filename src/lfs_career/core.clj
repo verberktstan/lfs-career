@@ -21,13 +21,6 @@
 
 (defonce sta (atom nil))
 
-(def ^:private header-line "-=#############=-")
-
-(defn- prepare-season [{::season/keys [cars key]}]
-  [[header-line]
-   [(str "Welcome to the season: " (name key))]
-   ["/cars" (str/join "+" cars)]])
-
 (defn- start-season! [lfs-client season-key]
   (let [season (try
                  (swap! state career/start-season season-key)
@@ -35,7 +28,7 @@
                    (->lfs! lfs-client [[(.getMessage e)]])))]
     (->lfs!
      lfs-client
-     (prepare-season season))))
+     (season/prepare season))))
 
 (defn- get-config []
   (-> "config.edn" slurp edn/read-string))
@@ -91,8 +84,7 @@
    (prepare-next-race @sta (swap! state season/next-race))))
 
 (defn- prepare-end-season [{::career/keys [unlocked-seasons unlocked-cars]}]
-  [[header-line]
-   [(str "Available seasons; " (str/join ", " unlocked-seasons))]
+  [[(str "Available seasons; " (str/join ", " unlocked-seasons))]
    [(str "Available cars; " (str/join ", " unlocked-cars))]])
 
 (defn- end-season! [lfs-client]
@@ -147,8 +139,7 @@
         path (get files s)]
     (if path
       (let [{::career/keys [key]} (reset! state (read-career path))]
-        [(packets/mst header-line)
-         (packets/mst (str "Welcome to career " s))
+        [(packets/mst (str "Welcome to career " s))
          (packets/mst "!unlocked")])
       (packets/mst (str "Unknown career, try: " (str/join ", " (keys files)))))))
 
@@ -181,7 +172,7 @@
 
 (defn- dispatch-command [lfs-client command args]
   (case command
-    "!help" (map packets/mst (concat [header-line] help-info))
+    "!help" (map packets/mst help-info)
     "!career" (import-career! (-> args first))
     "!unlocked" (map packets/mst (career/list-unlocked @state))
     "!season" (future (start-season! lfs-client (-> args first keyword)))
