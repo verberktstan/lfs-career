@@ -12,6 +12,9 @@
 (s/def ::model
   (s/keys :req [::laps ::qual ::track ::results]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Public functions
+
 (defn make [{:keys [track laps qual]}]
   {:post [(u/validate ::model %)]}
   {::laps (or laps 3)
@@ -21,3 +24,10 @@
 
 (defn register-result [race result]
   (update race ::results conj result))
+
+(defn finished?
+  "Returns true if the number of registered results exceed the threshold (2/3 of
+   the grid-size)"
+  [{::keys [results]} grid-size]
+  (let [threshold (-> grid-size (/ 1.5) int inc)]
+    (>= (count results) threshold)))

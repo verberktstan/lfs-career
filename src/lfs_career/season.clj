@@ -53,26 +53,21 @@
     (seq results) (assoc ::race/results nil)
     (seq results) (update ::results #(conj % results))))
 
-(defn- current-race-not-finished? [{::keys [n-races races]
-                                    ::race/keys [results]}]
-  (and (not (= n-races (count races)))
-       (not (seq results))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
 
 (defn end [{::race/keys [results] :as season}]
   (register-race-results season))
 
-(defn next-race [{::keys [races] :as season}]
+(defn next-race [{::keys [grid-size races] :as season}]
   (when-not (seq races)
     (throw (ex-info "No more races left in season!" season)))
   (let [new-season (cond-> season (not (initialized? season)) (generate-grid))]
-    (if (current-race-not-finished? season)
-      new-season
+    (if (race/finished? season grid-size)
       (cond-> (end new-season)
         (seq races) (update ::races rest)
-        (seq races) (merge (first races))))))
+        (seq races) (merge (first races)))
+      new-season)))
 
 (defn finished? [{::keys [n-races races results]}]
   (and (not (seq races))
