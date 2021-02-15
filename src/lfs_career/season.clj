@@ -53,6 +53,9 @@
     (seq results) (assoc ::race/results nil)
     (seq results) (update ::results #(conj % results))))
 
+(defn- first-race? [{::keys [n-races races]}]
+  (= n-races (count races)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
 
@@ -63,7 +66,7 @@
   (when-not (seq races)
     (throw (ex-info "No more races left in season!" season)))
   (let [new-season (cond-> season (not (initialized? season)) (generate-grid))]
-    (if (race/finished? season grid-size)
+    (if (or (race/finished? season grid-size) (first-race? season))
       (cond-> (end new-season)
         (seq races) (update ::races rest)
         (seq races) (merge (first races)))
