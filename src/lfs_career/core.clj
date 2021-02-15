@@ -183,30 +183,37 @@
       product version insim-version))
     (packets/mst "!help")))
 
-(defn -main []
+(defn- start!
+  "Starts the InSim client, resetting the lfs-client atom."
+  []
   (reset!
    lfs-client
    (clj-insim/client
     {:sleep-interval 50}
     (packets/insim-init {:is-flags #{:req-join}})
-    (comp dispatch lfs/dispatch)))
+    (comp dispatch lfs/dispatch))))
+
+(defn- stop!
+  "Stops the InSim client."
+  []
+  (clj-insim/stop! @lfs-client))
+
+(defn -main []
   (let [setup-dir (:setup-dir (get-config))]
     (when-not (.isDirectory (io/file setup-dir))
       (println "Config error: Directory does not exist:" setup-dir)
       (println "Copy `config.edn.example` to `config.edn` and make sure :setup-dir points to your LFS/data/setups directory!")
       (System/exit 0)))
+  (start!)
   (println "Type exit, quit or stop to quit lfs-career")
   (loop [input nil]
     (if (#{"exit" "quit" "stop"} input)
       (do
-        (clj-insim/stop! @lfs-client)
+        (stop!)
         (System/exit 0))
       (recur (read-line)))))
 
 (comment
-  (reset!
-   lfs-client
-   (clj-insim/client {:sleep-interval 50} (packets/insim-init {:is-flags #{:req-join}}) (comp dispatch lfs/dispatch)))
-
-  (clj-insim/stop! @lfs-client)
+  (start!)
+  (stop!)
 )
