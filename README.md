@@ -3,8 +3,8 @@ Lets you play single player career mode with the Live For Speed racing simulator
 For now its a quick/dirty method. Expect broken functionality, use at your own risk! If you have ideas for improvement, please file an issue!
 
 ## Running the java JAR
+Locate the executable java jar file; target/lfs-career-v0.1.0.jar.
 Have a look at https://www.lfs.net/forum/thread/95034-lfs-career%3A-Single-player-career-mode%21
-There you'll find the jar file, config files and instructions to get it running!
 
 ## Getting started
 Before playing the game, copy `config.edn.example` to `config.edn` and make shure the :setup-dir points to your LFS/data/setups directory.
