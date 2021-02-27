@@ -1,5 +1,6 @@
 (ns lfs-career.core
   (:require [lfs-career.career :as career]
+            [lfs-career.component :as component]
             [lfs-career.lfs :as lfs :refer [->lfs!]]
             [lfs-career.season :as season]
             [lfs-career.race :as race]
@@ -15,8 +16,6 @@
             [clojure.string :as str]
             [clojure.core.async :as a])
   (:gen-class))
-
-(defonce lfs-client (atom nil))
 
 (defonce state (atom nil))
 
@@ -151,7 +150,7 @@
 (defmethod dispatch :mso [{::packet/keys [body header]}]
   (when-let [[command & args] (parse-mso-command body)]
     (try
-      (dispatch-command @lfs-client command args)
+      (dispatch-command (component/get-lfs-client) command args)
       (catch Exception e (packets/mst (doto (.getMessage e) println))))))
 
 (defn- join-request? [{::packet/keys [body]}]
@@ -183,37 +182,22 @@
       product version insim-version))
     (packets/mst "!help")))
 
-(defn- start!
-  "Starts the InSim client, resetting the lfs-client atom."
-  []
-  (reset!
-   lfs-client
-   (clj-insim/client
-    {:sleep-interval 50}
-    (packets/insim-init {:is-flags #{:req-join}})
-    (comp dispatch lfs/dispatch))))
-
-(defn- stop!
-  "Stops the InSim client."
-  []
-  (clj-insim/stop! @lfs-client))
-
 (defn -main []
   (let [setup-dir (:setup-dir (get-config))]
     (when-not (.isDirectory (io/file setup-dir))
       (println "Config error: Directory does not exist:" setup-dir)
       (println "Copy `config.edn.example` to `config.edn` and make sure :setup-dir points to your LFS/data/setups directory!")
       (System/exit 0)))
-  (start!)
+  (component/start! (comp dispatch lfs/dispatch))
   (println "Type exit, quit or stop to quit lfs-career")
   (loop [input nil]
     (if (#{"exit" "quit" "stop"} input)
       (do
-        (stop!)
+        (component/stop!)
         (System/exit 0))
       (recur (read-line)))))
 
 (comment
-  (start!)
-  (stop!)
+  (component/start! (comp dispatch lfs/dispatch))
+  (component/stop!)
 )
