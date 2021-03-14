@@ -2,7 +2,7 @@
 Lets you play single player career mode with the Live For Speed racing simulator. If you have ideas for improvement, please file an issue!
 
 ## Getting started
-Extract the file `lfs-career-v0.1.0.zip` to a location of your liking. Copy `config.edn.example` to `config.edn` and make shure the :setup-dir points to your LFS/data/setups directory.
+Extract the file `lfs-career-v0.1.0.zip` to a location of your liking. Check if the string in `config.edn` points to your LFS/data/setups directory. This should be the case for the default installation location on Windows.
 
 Launch Live For Speed, choose `single player` and type `/insim 29999`.
 Start lfs-career by running `java -jar lfs-career-v0.1.0.jar`.
