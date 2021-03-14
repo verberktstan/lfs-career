@@ -1,5 +1,0 @@
-{:setup-dir
- "C:\path\to\LFS\data\setups"}
-
-;; On linux/mac this look somehting like;
-;; /home/user/.PlayOnLinux/wineprefix/LFS/drive_c/LFS/data/setups
