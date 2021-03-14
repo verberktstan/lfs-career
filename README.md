@@ -1,25 +1,20 @@
 # lfs-career
-Lets you play single player career mode with the Live For Speed racing simulator.
-For now its a quick/dirty method. Expect broken functionality, use at your own risk! If you have ideas for improvement, please file an issue!
-
-## Running the java JAR
-Locate the executable java jar file; target/lfs-career-v0.1.0.jar.
-Have a look at https://www.lfs.net/forum/thread/95034-lfs-career%3A-Single-player-career-mode%21
+Lets you play single player career mode with the Live For Speed racing simulator. If you have ideas for improvement, please file an issue!
 
 ## Getting started
-Before playing the game, copy `config.edn.example` to `config.edn` and make shure the :setup-dir points to your LFS/data/setups directory.
+Extract the file `lfs-career-v0.1.0.zip` to a location of your liking. Copy `config.edn.example` to `config.edn` and make shure the :setup-dir points to your LFS/data/setups directory.
 
 Launch Live For Speed, choose `single player` and type `/insim 29999`.
-Start lfs-career by running `clj -m lfs-career.core` or the bash script `bin/lfs-career`.
+Start lfs-career by running `java -jar lfs-career-v0.1.0.jar`.
 
 When you see the following;
 `Type exit, quit or stop to quit lfs-career
 Connected with LFS S3 / 0.6U (insim-version 8)`
-You know that lfs-career is running and succesfully connected to LFS.
+You know that lfs-career is running and succesfully connected to LFS. Fasten your seatbelts!
 
 ## Ingame commands
 
-In LFS, type `!help` to see all the commands needed for lfs-career. As you can see, it uses a simple command interface, no fancy buttons. Be warned!
+In LFS, type `!help` to see all the commands needed for lfs-career. As you can see, it uses a simple command interface, no fancy buttons. Be warned.
 
 The core concepts are career, season & race. A career consists of multiple seasons. Completing a season can lead to unlocking new seasons and/or cars. A season consists of multiple races.
 
